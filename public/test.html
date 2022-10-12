@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
+	</head>
+	<body>
+		<div id='container'>
+			<h2>音视频通话测试</h2>
+			<div id='local'></div>
+			<div id='remote'></div>
+
+			<input type='text' id='user' placeholder='请输入 user_id 后点加入聊天开始通话' style='width: 300px;'>
+			<button type='button' id='connect'>加入聊天</button>
+		</div>
+		<script src="https://cdn.agora.io/sdk/web/AgoraRTCSDK-2.6.1.js"></script>
+		<script>
+			var connect = document.getElementById('connect');
+			var user = document.getElementById('user');
+			var once = true;
+			connect.onclick = () => {
+				var reg = /^[0-9]+$/;
+				if (!reg.test(user.value)) {
+					alert('请输入 user_id 后加入预定义视频会议');
+				}
+				if (!once) {
+					return ;
+				}
+				once = true;
+				create(user.value);
+
+			};
+			var create = (userId) => {
+				var appid = 'd5b1d8029fba44efb1e8c07edea58f40';
+				// 创建音视频直接通话
+				var client = AgoraRTC.createClient({mode: 'live', codec: "h264"});
+
+				// 初始化客户端
+				client.init(appid, function () {
+					console.log("AgoraRTC client initialized");
+				}, function (err) {
+					console.log("AgoraRTC client init failed", err);
+				});
+				
+				var token = null;
+				var channel = '1024';
+				var uid = null;
+
+				// 加入给定的频道（这边的频道指：会议/聊天室/房间/频道等含义）
+				client.join(token , channel, uid , function(uid) {
+				  console.log("User " + uid + " join channel successfully");
+
+				}, function(err) {
+				  console.log("Join channel failed", err);
+				});
+				
+				// 创建音频流
+				var localStream = AgoraRTC.createStream({
+					streamID: 1,
+					audio: true,
+					video: false,
+					screen: false
+				});
+				
+				// 初始化音频流
+				localStream.init(function() {
+				  console.log("getUserMedia successfully");
+					  localStream.play('local');
+
+				}, function (err) {
+				  console.log("getUserMedia failed", err);
+				});
+				
+				// 发布本地音频流
+				client.publish(localStream, function (err) {
+				  console.log("Publish local stream error: " + err);
+				});
+
+				client.on('stream-published', function (evt) {
+				  console.log("Publish local stream successfully");
+				});
+
+				// 订阅远端音频流
+				client.on('stream-added', function (evt) {
+					var stream = evt.stream;
+					console.log("New stream added: " + stream.getId());
+
+					client.subscribe(stream, function (err) {
+						console.log("Subscribe stream failed", err);
+					});
+				});
+				client.on('stream-subscribed', function (evt) {
+					var remoteStream = evt.stream;
+					console.log("Subscribe remote stream successfully: " + remoteStream.getId());
+					remoteStream.play(remote);
+				});
+				
+				// 初始化成功时播放本地音频流
+				localStream.init(function() {
+					console.log("getUserMedia successfully");
+					// 这里使用local作为dom元素的id。
+					localStream.play('local');
+				}, function (err) {
+					console.log("getUserMedia failed", err);
+				});
+
+				// 订阅流成功时播放远端流
+				client.on('stream-subscribed', function (evt) {
+					var remoteStream = evt.stream;
+					console.log("Subscribe remote stream successfully: " + remoteStream.getId());
+					// 这里使用agora_remote + remoteStream.getId()作为dom元素的id。
+					remoteStream.play(remote);
+				})
+			};
+		</script>
+	</body>
+</html>
